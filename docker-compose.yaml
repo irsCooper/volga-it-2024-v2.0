@@ -61,6 +61,20 @@ services:
     networks:
       - work
 
+  timetable_service:
+    build:
+      context: ./timetable/
+    container_name: timetable_service
+    ports:
+      - "8083:8083"
+    depends_on:
+      - postgres
+      - rabbitmq
+      # - redis
+    env_file:
+      - ./timetable/.env
+    networks:
+      - work
 
 
 networks:

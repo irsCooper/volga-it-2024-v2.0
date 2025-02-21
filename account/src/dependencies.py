@@ -13,7 +13,7 @@ from src.accounts.model import UserModel
 from src.authentication.utils import ACCESS_TOKEN_TYPE, REFRESH_TOKEN_TYPE, TOKEN_TYPE_FIELD, decode_jwt, encode_jwt
 from src.core.config import settings
 from src.core.db_helper import db
-from src.rabbit_mq.client import rabbit_mq_client
+from src.rabbit_mq.base import ROUTING_KEY_DELETE_TIMETABLE_DOCTOR
 from src.rabbit_mq.client import rabbit_mq_client
 
 http_bearer = HTTPBearer(auto_error=False)
@@ -148,4 +148,7 @@ async def get_current_role(
         )
 
 async def delete_timetable_doctor(doctor_id: uuid.UUID):
-    await rabbit_mq_client.call(str(doctor_id))
+    await rabbit_mq_client.call(
+        body=str(doctor_id), 
+        routing_key=ROUTING_KEY_DELETE_TIMETABLE_DOCTOR
+    )
