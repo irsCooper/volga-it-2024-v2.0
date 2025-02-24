@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.hospitals.router import router as router_hospital
 from src.rabbit_mq.server import consume_rabbitmq
+from src.rabbit_mq.client import rabbit_mq_client
 
 import uvicorn
 import asyncio
@@ -12,7 +13,8 @@ import asyncio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    task = asyncio.create_task(consume_rabbitmq())
+    # task = asyncio.create_task(consume_rabbitmq())
+    task = asyncio.create_task(rabbit_mq_client.start_consumer("hospital_check_queue", "hospital_response_queue", "hospital"))
     try: 
         yield
     finally:

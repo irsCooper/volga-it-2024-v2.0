@@ -8,42 +8,40 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.timetables.schemas import TimetableCreate, TimetableUpdate
 from src.timetables.model import TimetableModel
 from src.timetables.dao import TimetableDAO
+
+from src.rabbit_mq.timetable import TimetableRabbitClient
+
 from src.exception.TimetableException import TimetableNotFound, DatatimeOnFormError
 
 class TimetableService:
+    @classmethod
+    async def validate_time(cls, data: TimetableCreate):
+        if data.from_column >= data.to:
+            raise DatatimeOnFormError
+
+        for field in ["from_column", "to"]:
+            time_value: datetime = getattr(data, field)
+            if time_value.minute not in {0, 30}:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"The minutes of the '{field}' field must be 0 or 30"
+                )
+            if time_value.second != 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"The seconds of the '{field}' field must be 0"
+                )
+
     @classmethod
     async def create_timetable(
         cls,
         data: TimetableCreate,
         session: AsyncSession
     ) -> Optional[TimetableModel]:
-        if data.from_column >= data.to:
-            raise DatatimeOnFormError
-            
-        if data.from_column.minute != 30 and data.from_column.minute != 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="The minutes of the 'form' field must be a multiple of 30 or equal to 00"
-            )
-        
-        if data.from_column.second != 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="The secjond of the 'form' field must be a multiple of o 0"
-            )
-        
-        if data.to.minute != 30 and data.to.minute != 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="The minutes of the 'to' field must be a multiple of 30 or equal to 0"
-            )
-        
-        if data.to.second != 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="The secjond of the 'to' field must be a multiple of o 0"
-            )
-        
+        await cls.validate_time(data)
+
+        await TimetableRabbitClient.check_hospital(data.hospital_id)
+        print('success check hospital')
         return await TimetableDAO.add(
             session=session,
             obj_in=TimetableCreate(**data.model_dump())
@@ -57,8 +55,7 @@ class TimetableService:
         data: TimetableUpdate,
         session: AsyncSession
     ) -> Optional[TimetableModel]:
-        if data.from_column >= data.to:
-            raise DatatimeOnFormError
+        await cls.validate_time(data)
         
         timetable = await TimetableDAO.update(
             session,

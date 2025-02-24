@@ -51,20 +51,27 @@ async def check_hospital(
     channel: RobustChannel
 ):
     async with message.process():
+        print(f"hospital 1")
         hospital_id = message.body.decode()
-        async with db.session() as session:
-            room = await HospitalDAO.find_one_or_none(session, HospitalModel.id == hospital_id)
-            if room:
-                response = b'\x01'
-            else:
-                response = b'\x00'
-        if message.reply_to:
-            await rabbit_mq_client.publish_message(
-                channel=channel,
-                body=response,
-                correlation_id=message.correlation_id,
-                routing_key=message.reply_to
-            )
+        try:
+            async with db.session_factory as session:
+                print(f"hospital 2")
+                room = await HospitalDAO.find_one_or_none(session, HospitalModel.id == hospital_id)
+                if room:
+                    response = b'\x01'
+                else:
+                    response = b'\x00'
+            
+            print(f"hospital 3")
+            if message.reply_to:
+                await rabbit_mq_client.publish_message(
+                    channel=channel,
+                    body=response,
+                    correlation_id=message.correlation_id,
+                    routing_key=message.reply_to
+                )
+        except Exception as e:
+            print(e)
             # await channel.default_exchange.publish(
             #     aio_pika.Message(
             #         body=response,
